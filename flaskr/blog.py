@@ -58,21 +58,21 @@ def create():
 def get_post(id,check_author=True):
     post = get_db().execute(
         "SELECT p.id, p.title, p.body, p. author_id, p.created, u.username"
-        " FROM post p JOIN user u ON p.author_id = u.user_id"
+        " FROM post p JOIN user u ON p.author_id = u.id"
         " WHERE p.id = ?",
         (id,)
     ).fetchone()
     
-    if post in None:
+    if post is None:
         abort(404, "Post id {0} doesn't exist.".format(id))
     
-    if check_author and post['author_id'] != g.user_id:
+    if check_author and post['author_id'] != g.user['id']:
         abort(403)
     
     return post
 
 @login_required
-@bp.route("/update",methods=["GET","POST"])
+@bp.route("/<int:id>/update",methods=["GET","POST"])
 def update(id):
     post = get_post(id)
     if request.method == "POST":
@@ -108,7 +108,7 @@ def update(id):
 
 
 @login_required
-@bp.route('/delete',methods=["POST"])
+@bp.route('/<int:id>/delete',methods=["POST"])
 def delete(id):
     post = get_post(id)
     db = get_db()
