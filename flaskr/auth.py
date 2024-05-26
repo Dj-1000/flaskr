@@ -1,4 +1,4 @@
-import functools
+import functools, re
 from flask import (
     Blueprint,flash,g,redirect,render_template,request,session,url_for, Response, jsonify,json, 
 )
@@ -13,27 +13,44 @@ def register():
     if request.method=="POST":
         username = request.form['username']
         password = request.form['password']
+        errors = []
+        if username.isspace():  # Check if name consists only of spaces
+            errors.append('Username cannot be empty spaces only.') 
+            
+        if password.isspace():  # Check if password consists only of spaces
+            errors.append('Password cannot be empty spaces only.')
         db = get_db()
-        error = None
+        
         
         if not username:
-            error = 'Username is required.'
+            errors.append('Username is required.')
         elif not password:
-            error = 'Password is required.'
+            errors.append('Password is required.')
+            
+        if len(username) < 3:
+            errors.append('Username must be at least 3 characters long')
+            
+        # Regex for allowed characters: alphanumeric, underscore, and period
+        username_regex = r'^[a-zA-Z0-9_.]+$'
+        if not re.match(username_regex, username):
+            errors.append('Username can only contain letters, numbers, underscores (_), and periods (.)')
         
-        if error is None:
+        if errors:    
+            flash('Registration failed:', category='error')
+            for error in errors:
+                flash(error)
+        else:
             try:
                 db.execute(
                     "INSERT INTO user (username,password) VALUES (?,?)",
                     (username, generate_password_hash(password)),
                 )
                 db.commit()
+                flash('Registration successful!', category='success')
             except db.IntegrityError as e:
                 error=f"User {username} is already registered."
             else:
                 return redirect(url_for("auth.login"))
-            
-        flash(error)
         
     return render_template('auth/register.html')
         
@@ -50,22 +67,23 @@ def login():
         user = db.execute(
             "SELECT * FROM user WHERE username = ?",(username,)
         ).fetchone()
-        print(f"user : {user}")
+        
         
         if user is None:
             error = 'Incorrect username.'
-        elif not check_password_hash(user[password],password):
-            error = "incorrect password."
+        elif not check_password_hash(user['password'],password):
+            error = "Incorrect password."
         
         if error is None:
             session.clear()
+            print("USER_ID :",user['id'])
             session["user_id"] = user['id']
             return redirect(url_for("index"))
         
         flash(error)
-        return jsonify({
-            "error_message": error
-        }) , 200
+        # return jsonify({
+        #     "error_message": error
+        # }) , 200
         
     return render_template("auth/login.html")     
         
